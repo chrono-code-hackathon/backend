@@ -10,8 +10,8 @@ class File(BaseModel):
     raw_url: str
     blob_url: str
     patch: Optional[str]
+
 class Commit(BaseModel):
-    created_at: Optional[str]
     sha: str
     author: str
     date: str
@@ -20,7 +20,9 @@ class Commit(BaseModel):
     author_email: str
     description: Optional[str]
     author_url: str
+    repo_id: str
     files: List[File]
+
 class CommitAnalysis(BaseModel):
     id: int
     created_at: datetime
@@ -29,3 +31,5 @@ class CommitAnalysis(BaseModel):
     description: str
     commit_sha: str
     type: str
+    epic: str 
+    files: List[File]

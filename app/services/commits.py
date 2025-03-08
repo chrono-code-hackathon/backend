@@ -1,9 +1,7 @@
-from datetime import datetime
 import os
 from github import Github
 from typing import List, Optional
 from app.models.models_commit import Commit, File
-
 
 def get_repository_commits(repo_name: str="octokerbs/50Cent-Dolar-Blue-Bot", access_token: Optional[str] = os.getenv("GITHUB_ACCESS_TOKEN"), branch: str = None, path: str = None) -> List[Commit]:
     """
@@ -42,8 +40,6 @@ def get_repository_commits(repo_name: str="octokerbs/50Cent-Dolar-Blue-Bot", acc
                 ))
 
             commit_data = Commit(
-                created_at="",
-                repo_name=repo_name,
                 sha=full_commit.sha,
                 author=full_commit.author.login,
                 date=str(full_commit.commit.author.date),
@@ -52,8 +48,8 @@ def get_repository_commits(repo_name: str="octokerbs/50Cent-Dolar-Blue-Bot", acc
                 author_email=full_commit.commit.author.email,
                 description="",
                 author_url=full_commit.author.url,
-                files= commit_files
-                
+                repo_id=str(repo.id),
+                files=commit_files
             )
             result.append(commit_data)
         return result
@@ -61,4 +57,4 @@ def get_repository_commits(repo_name: str="octokerbs/50Cent-Dolar-Blue-Bot", acc
     except Exception as e:
         print(f"Error fetching commits: {e}")
         return []
-    
+

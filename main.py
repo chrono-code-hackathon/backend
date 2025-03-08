@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from app.controllers.github_controller import router as github_router
-import uvicorn
+
+from app.services.commits import get_repository_commits
+
+from app.services.supabase_service import store_commits, store_repository
 
 app = FastAPI(
     title="GitHub API",

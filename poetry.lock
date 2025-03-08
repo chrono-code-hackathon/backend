@@ -750,6 +750,27 @@ reauth = ["pyu2f (>=0.1.5)"]
 requests = ["requests (>=2.20.0,<3.0.0.dev0)"]
 
 [[package]]
+name = "google-genai"
+version = "1.5.0"
+description = "GenAI Python SDK"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "google_genai-1.5.0-py3-none-any.whl", hash = "sha256:0ad433836a402957a967ccd57cbab7768325d28966a8556771974ae1c018be59"},
+    {file = "google_genai-1.5.0.tar.gz", hash = "sha256:83fcfc4956ad32ecea1fda37d8f3f7cbadbdeebd2310f2a55bc7564a2f1d459f"},
+]
+
+[package.dependencies]
+anyio = ">=4.8.0,<5.0.0dev"
+google-auth = ">=2.14.1,<3.0.0dev"
+httpx = ">=0.28.1,<1.0.0dev"
+pydantic = ">=2.0.0,<3.0.0dev"
+requests = ">=2.28.1,<3.0.0dev"
+typing-extensions = ">=4.11.0,<5.0.0dev"
+websockets = ">=13.0,<15.0dev"
+
+[[package]]
 name = "googleapis-common-protos"
 version = "1.69.1"
 description = "Common protobufs used in Google APIs"
@@ -2674,4 +2695,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "2dbecb80b8af7af96c564dc18f6cfb04fedffdc45e2805aebf4fcd7ab41eca59"
+content-hash = "7dbdd58e04424ff520b28f6a276532e0aeb8a9b4993927aa964bb50cb08f9e0f"

@@ -3,26 +3,28 @@ from app.config.settings import settings
 
 class EmbeddingModel:
     _instance = None
-    _model = None
+    _client = None
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            genai.configure(api_key=settings.GOOGLE_API_KEY)
-            cls._model = genai.GenerativeModel('text-embedding-005')  # https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/text-embeddings-api#model_versions
+            cls._client = genai.Client(api_key=settings.GOOGLE_API_KEY)
         return cls._instance
 
-    async def get_embedding(self, text: str) -> list[float]:
+    async def get_embedding(self, texts: list[str]) -> list[float]:
         try:
-            response = self._model.embed(text)
-            return response.embedding.values
+            response = self._client.models.embed_content(
+                model="text-embedding-004",
+                contents=texts,
+            )
+            return response.embeddings
         except Exception as e:
             print(f"Error generating embedding: {e}")
             return []
 
 embedding_model = EmbeddingModel()
 
-async def get_text_embedding(text: str) -> list[float]:
+async def get_text_embedding(texts: list[str]) -> list[float]:
     """
     Generates a text embedding for the given text using the Gemini API.
 
@@ -32,4 +34,4 @@ async def get_text_embedding(text: str) -> list[float]:
     Returns:
         A list of floats representing the embedding.
     """
-    return await embedding_model.get_embedding(text)
+    return await embedding_model.get_embedding(texts)

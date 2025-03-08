@@ -1,38 +1,29 @@
 from pydantic import BaseModel, Field
+from enum import Enum
 from typing import List, Optional
 
 class File(BaseModel):
-    """
-    Represents a file changed in a commit.
-    """
-    filename: str = Field(description="The name of the file.")
-    additions: int = Field(description="The number of lines added in this file.")
-    deletions: int = Field(description="The number of lines deleted in this file.")
-    changes: int = Field(description="The total number of lines changed (additions + deletions).")
-    status: str = Field(description="The status of the file (e.g., 'modified', 'added', 'deleted').")
-    raw_url: str = Field(description="URL to view the raw content of the file at this commit.")
-    blob_url: str = Field(description="URL to view the file's blob (content) in the repository.")
-    patch: Optional[str] = Field(default=None, description="The patch (diff) for the file, showing the exact changes.")
+    filename: str
+    additions: int
+    deletions: int
+    changes: int
+    status: str
+    raw_url: str
+    blob_url: str
+    patch: Optional[str]
 
 class Commit(BaseModel):
-    """
-    Represents a Git commit.
-    """
-    created_at: str = Field(description="Timestamp indicating when the commit was recorded.")
-    repo_name: str = Field(description="The name of the repository the commit belongs to.")
-    sha: str = Field(description="The SHA hash of the commit.")
-    author: str = Field(description="The name of the commit author.")
-    date: str = Field(description="The date of the commit.")
-    message: str = Field(description="The commit message.")
-    url: str = Field(description="URL to view the commit in the repository.")
-    author_email: str = Field(description="The email address of the commit author.")
-    description: Optional[str] = Field(default=None, description="A more detailed description of the commit.")
-    author_url: str = Field(description="URL to the author's profile or page.")
-    files: List[File] = Field(description="A list of files changed in this commit.")
-
-from enum import Enum
-from pydantic import BaseModel, Field
-from typing import List
+    created_at: Optional[str]
+    sha: str
+    author: str
+    date: str
+    message: str
+    url: str
+    author_email: str
+    description: Optional[str]
+    author_url: str
+    repo_id: str
+    files: List[File]
 
 class CommitType(str, Enum):
     """
@@ -98,3 +89,4 @@ class SubCommitNeighbors(BaseModel):
     This model contains a list of the most semantically similar sub-commits to a given input sub-commit.
     """
     subcommits: List[SubCommitAnalysis] = Field(description="The list of sub-commits that are the most similar neighbors to the given sub-commit, based on semantic similarity.")
+

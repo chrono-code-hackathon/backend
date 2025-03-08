@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.controllers.github_controller import router as github_router
+from app.controllers.analysis_controller import router as analysis_router
 import uvicorn
 
 app = FastAPI(
@@ -10,6 +11,7 @@ app = FastAPI(
 
 # Include routers
 app.include_router(github_router, prefix="/api/v1")
+app.include_router(analysis_router, prefix="/api/v1")
 
 @app.get("/api/v1/", tags=["root"])
 async def root():
@@ -18,7 +20,8 @@ async def root():
         "message": "GitHub API is running",
         "docs": "/docs",
         "endpoints": {
-            "github_commits": "/api/v1/github/commits?repo_url=owner/repo"
+            "github_commits": "/api/v1/github/commits?repo_url=owner/repo",
+            "analysis_commits": "/api/v1/analysis/commits?repo_url=owner/repo"
         }
     }
 

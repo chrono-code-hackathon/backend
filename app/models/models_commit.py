@@ -22,7 +22,7 @@ class Commit(BaseModel):
     author_email: str
     description: Optional[str]
     author_url: str
-    repo_id: str
+    repo_id: int = 0
     files: List[File]
 
 class CommitType(str, Enum):

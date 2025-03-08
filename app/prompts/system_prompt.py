@@ -1,4 +1,4 @@
-from app.models.models_commit import Commit, SubCommitNeighbors
+from app.models.models_commit import Commit, SubCommitNeighbors, SubCommitAnalysis
 
 def format_commit_analysis_prompt(commit: Commit):
     system_prompt = """

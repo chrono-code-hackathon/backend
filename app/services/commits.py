@@ -1,58 +1,74 @@
-
-from typing import List, Dict, Any, Optional
+from datetime import datetime
+import os
 from github import Github
-from fastapi import HTTPException
-
-def get_repository_commits(repo_url: str, access_token: Optional[str] = None, branch: str = None, path: str = None) -> List[Dict[Any, Any]]:
+from typing import List, Optional
+from app.models.models_commit import Commit, File
+from app.config.settings import settings
+def get_repository_commits(repo_url: str, access_token: Optional[str] = settings.GITHUB_ACCESS_TOKEN, branch: str = None, path: str = None) -> List[Commit]:
     """
-    Get all commits from a repository.
-    
+    Get all commits from a GitHub repository.
     Args:
-        repo_url: Full GitHub repository URL or owner/repo format
-        access_token: GitHub personal access token for authenticated requests.
-                      If None, uses unauthenticated access with rate limits.
-        branch: Branch name to get commits from (optional)
-        path: Path to get commits for (optional)
+        repo_url: The URL of the repository (e.g., "https://github.com/username/repo")
+        access_token: GitHub personal access token (optional)
+        branch: The branch to get commits from (optional)
+        path: The path to filter commits by (optional)
         
     Returns:
-        List of commit data dictionaries
+        List of Commit objects
     """
-    try:
-        github = Github(access_token) if access_token else Github()
+    
+    g = Github(access_token) if access_token else Github()
 
-        # Extract owner and repo name from URL if full URL is provided
-        if "github.com" in repo_url:
-            parts = repo_url.rstrip('/').split('/')
-            if len(parts) >= 2:
-                owner_repo = '/'.join(parts[-2:])
-            else:
-                raise ValueError(f"Invalid GitHub URL: {repo_url}")
+    try:
+        repo_name = repo_url.split("github.com/")[1]
+        repo_name = repo_name.replace(".git", "") if repo_name.endswith(".git") else repo_name
+        repo = g.get_repo(repo_name)
+        
+        if branch and path:
+            commits = repo.get_commits(sha=branch, path=path)
+        elif branch:
+            commits = repo.get_commits(sha=branch)
         else:
-            owner_repo = repo_url
+            commits = repo.get_commits()
         
-        repo = github.get_repo(owner_repo)
-        commits = repo.get_commits(sha=branch, path=path)
-        
-        # Convert commits to serializable format
         result = []
         for commit in commits:
-            commit_data = {
-                "sha": commit.sha,
-                "message": commit.commit.message,
-                "author": {
-                    "name": commit.commit.author.name,
-                    "email": commit.commit.author.email,
-                    "date": commit.commit.author.date.isoformat() if commit.commit.author.date else None
-                },
-                "url": commit.html_url,
-                "stats": {
-                    "additions": commit.stats.additions,
-                    "deletions": commit.stats.deletions,
-                    "total": commit.stats.total
-                } if hasattr(commit, 'stats') else None
-            }
+            full_commit = repo.get_commit(commit.sha)
+
+            files = full_commit.files
+            commit_files = []
+            for file in files:
+                commit_files.append(File(
+                    filename=file.filename,
+                    additions=file.additions,
+                    deletions=file.deletions,
+                    changes=file.changes,
+                    status=file.status,
+                    raw_url=file.raw_url,
+                    blob_url=file.blob_url,
+                    patch=file.patch,
+                ))
+            
+            author_name = full_commit.author.login if full_commit.author else "N/A"
+            author_url = full_commit.author.html_url if full_commit.author else "N/A"
+
+            commit_data = Commit(
+                created_at=str(full_commit.commit.author.date),
+                sha=full_commit.sha,
+                author=author_name,
+                date=str(full_commit.commit.author.date),
+                message=full_commit.commit.message,
+                url=full_commit.html_url,
+                author_email=full_commit.commit.author.email,
+                description=full_commit.commit.message,
+                author_url=author_url,
+                repo_id=repo.id,
+                files= commit_files
+                
+            )
             result.append(commit_data)
-        
         return result
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching commits: {str(e)}")
+        print(f"Error fetching commits: {e}")
+        return []

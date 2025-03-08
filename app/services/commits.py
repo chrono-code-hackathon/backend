@@ -4,6 +4,8 @@ from github import Github
 from typing import List, Optional
 from app.models.models_commit import Commit, File
 from app.config.settings import settings
+from app.logger.logger import logger
+
 def get_repository_commits(repo_url: str, access_token: Optional[str] = settings.GITHUB_ACCESS_TOKEN, branch: str = None, path: str = None) -> List[Commit]:
     """
     Get all commits from a GitHub repository.
@@ -20,20 +22,26 @@ def get_repository_commits(repo_url: str, access_token: Optional[str] = settings
     g = Github(access_token) if access_token else Github()
 
     try:
+        logger.info(f"Fetching commits from repo: {repo_url}, branch: {branch}, path: {path}")
         repo_name = repo_url.split("github.com/")[1]
         repo_name = repo_name.replace(".git", "") if repo_name.endswith(".git") else repo_name
         repo = g.get_repo(repo_name)
+        logger.info(f"Repository found: {repo.full_name}")
         
         if branch and path:
             commits = repo.get_commits(sha=branch, path=path)
+            logger.info(f"Fetching commits from branch: {branch} and path: {path}")
         elif branch:
             commits = repo.get_commits(sha=branch)
+            logger.info(f"Fetching commits from branch: {branch}")
         else:
             commits = repo.get_commits()
+            logger.info("Fetching all commits from default branch")
         
         result = []
         for commit in commits:
             full_commit = repo.get_commit(commit.sha)
+            logger.debug(f"Processing commit: {full_commit.sha}")
 
             files = full_commit.files
             commit_files = []
@@ -67,8 +75,9 @@ def get_repository_commits(repo_url: str, access_token: Optional[str] = settings
                 
             )
             result.append(commit_data)
+        logger.info(f"Successfully fetched {len(result)} commits.")
         return result
     
     except Exception as e:
-        print(f"Error fetching commits: {e}")
+        logger.error(f"Error fetching commits: {e}")
         return []

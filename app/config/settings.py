@@ -8,7 +8,9 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str 
     BATCH_SIZE: int = 50
     GITHUB_ACCESS_TOKEN: str
-
+    SUPABASE_URL: str
+    SUPABASE_KEY: str
+    API_KEY: str = "CHRONOCODE123"
     class Config:
         env_file = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
         env_file_encoding = "utf-8"

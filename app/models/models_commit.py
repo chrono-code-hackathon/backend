@@ -2,6 +2,10 @@ from pydantic import BaseModel, Field
 from enum import Enum
 from typing import List, Optional
 
+class Repository(BaseModel):
+    name: str
+    url: str
+    
 class File(BaseModel):
     filename: str
     additions: int
@@ -59,13 +63,15 @@ class SubCommitAnalysis(BaseModel):
     For example, a single GitHub commit might contain multiple logical changes like
     fixing a bug, updating documentation, and refactoring code - each would be a separate SubCommit.
     """
+    repo_name: str = Field(default="", description="The name of the repository.")
     title: str = Field(description="A concise, descriptive title summarizing this specific unit of work within the commit.")
     idea: str = Field(description="The core concept or purpose behind this specific change, explaining the 'why' of this particular modification.")
     description: str = Field(description="A detailed technical explanation of what was changed, how it works, why it matters, and any potential implications or considerations.")
     type: CommitType = Field(description="The category of change (e.g., 'bug fix', 'feature', 'refactoring', 'documentation', 'performance', 'security', etc.).")
     commit_sha: str = Field(default="", description="IGNORE THIS FIELD. It is automatically populated by the system.")
     epic: str = Field(default="", description="IGNORE THIS FIELD. It is automatically populated by the system.")
-    
+    files: List[File] = Field(description="The list of files associated with this sub-commit.")
+
 class SubCommitAnalysisList(BaseModel):
     """
     Represents a collection of logical units of work (SubCommits) identified within a single GitHub commit.

@@ -204,4 +204,38 @@ def test_connection() -> Dict[str, Any]:
     
     except Exception as e:
         logger.error(f"Error testing Supabase connection: {e}")
-        return {"error": str(e)} 
+        return {"error": str(e)}
+from typing import List, Dict, Any
+from app.models.models_commit import SubCommitAnalysis
+from supabase import Client
+
+def get_all_commit_analyses() -> Dict[str, List[SubCommitAnalysis]]:
+    """
+    Retrieve all documents from the 'commit_analyses' table in Supabase and deserialize them to SubCommitAnalysis objects.
+
+    Returns:
+        A dictionary containing either the fetched data (as a list of SubCommitAnalysis objects) or an error message.
+    """
+    try:
+        logger.info("Retrieving all commit analyses from Supabase")
+        supabase: Client = get_client()
+        if not supabase:
+            logger.error("Failed to initialize Supabase client")
+            return {"error": "Failed to initialize Supabase client"}
+
+        result = supabase.table('commit_analyses').select("*").execute()
+
+        if result.data:
+            logger.info(f"Successfully retrieved {len(result.data)} commit analyses.")
+            
+            # Deserialize each item in result.data to a SubCommitAnalysis object
+            analyses: List[SubCommitAnalysis] = [SubCommitAnalysis(**item) for item in result.data]
+            
+            return {"data": analyses}
+        else:
+            logger.info("No commit analyses found in Supabase.")
+            return {"data": []}
+
+    except Exception as e:
+        logger.error(f"Error retrieving commit analyses: {e}")
+        return {"error": str(e)}

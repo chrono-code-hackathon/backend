@@ -102,7 +102,6 @@ async def vectorize_subcommit(subcommit: SubCommitAnalysis) -> Document:
         "commit_sha": subcommit.commit_sha,
         "title": subcommit.title,
         "type": subcommit.type.value,
-        "epic": subcommit.epic
     }
     
     # Create a unique ID for the subcommit
@@ -155,6 +154,7 @@ async def find_similar_subcommits(subcommit: SubCommitAnalysis, k: int = 5) -> S
     for neighbor in neighbors:
         # Extract metadata from the neighbor
         metadata = neighbor.metadata
+        subcommit_id = neighbor.subcommit_id
         
         # Create a SubCommitAnalysis object from the metadata
         similar_subcommit = SubCommitAnalysis(

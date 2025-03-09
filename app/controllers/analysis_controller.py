@@ -15,6 +15,7 @@ router = APIRouter()
 
 class CommitAnalysisRequest(BaseModel):
     repository_url: str
+    access_token: Optional[str] = None
 
 class UpdateAnalysisRequest(BaseModel):
     repository_url: str
@@ -60,7 +61,7 @@ async def analyze_commits(request: CommitAnalysisRequest):
         
         try:
             # Fetch commits from the repository
-            list_commits = await commits.get_repository_commits(request.repository_url)
+            list_commits = await commits.get_repository_commits(request.repository_url, request.access_token)
             
             # Handle the case where no commits are returned (either repo not found or no commits)
             if not list_commits:

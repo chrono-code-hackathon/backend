@@ -1,8 +1,9 @@
+import os
 from google import genai
-from app.config.settings import settings
 
 class EmbeddingModel:
     _instance = None
+    _client = None
     _client = None
 
     def __new__(cls):
@@ -12,7 +13,13 @@ class EmbeddingModel:
         return cls._instance
 
     async def get_embedding(self, texts: list[str]) -> list[float]:
+    async def get_embedding(self, texts: list[str]) -> list[float]:
         try:
+            response = self._client.models.embed_content(
+                model="text-embedding-004",
+                contents=texts,
+            )
+            return response.embeddings
             response = self._client.models.embed_content(
                 model="text-embedding-004",
                 contents=texts,
@@ -25,6 +32,7 @@ class EmbeddingModel:
 embedding_model = EmbeddingModel()
 
 async def get_text_embedding(texts: list[str]) -> list[float]:
+async def get_text_embedding(texts: list[str]) -> list[float]:
     """
     Generates a text embedding for the given text using the Gemini API.
 
@@ -34,4 +42,5 @@ async def get_text_embedding(texts: list[str]) -> list[float]:
     Returns:
         A list of floats representing the embedding.
     """
+    return await embedding_model.get_embedding(texts)
     return await embedding_model.get_embedding(texts)

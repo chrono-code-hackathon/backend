@@ -17,6 +17,7 @@ class File(BaseModel):
     blob_url: str
     patch: Optional[str]
 
+
 class Commit(BaseModel):
     sha: str
     author: str

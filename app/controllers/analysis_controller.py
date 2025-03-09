@@ -132,84 +132,9 @@ async def analyze_commits(request: CommitAnalysisRequest):
             
             logger.info(f"Successfully stored {len(all_analyses)} analyses in Supabase")
             
-            # Generate embeddings for the repository after analysis is complete
-            logger.info(f"Generating embeddings for repository: {request.repository_url}")
-            
-            # Get repository ID from the analyses
-            repo_id = None
-            if all_analyses and hasattr(all_analyses[0], 'repo_id'):
-                repo_id = all_analyses[0].repo_id
-            else:
-                # Get repo ID from Supabase if not available in analyses
-                result = get_all_commit_analyses(request.repository_url)
-                if "repo_id" in result:
-                    repo_id = result["repo_id"]
-            
-            if not repo_id:
-                logger.error("Repository ID not found for embedding generation")
-                return {
-                    "status": "partial_success",
-                    "message": f"Successfully analyzed {len(list_commits)} commits and stored {len(all_analyses)} analyses, but failed to generate embeddings due to missing repository ID.",
-                    "analyses_count": len(all_analyses)
-                }
-            
-            # Process all embeddings concurrently
-            async def process_analysis(analysis):
-                # Prepare text for the analysis
-                text = create_subcommit_text(analysis)
-                
-                # Generate embedding for the text
-                embedding = await get_text_embedding([text])
-                
-                if embedding and embedding[0]:
-                    # Create document with embedding
-                    doc = Document(
-                        vector=embedding[0],
-                        subcommit_id=analysis.id,
-                        metadata={
-                            "subcommit_id": analysis.id,
-                            "content": f"Title: {analysis.title}\nDescription: {analysis.description}\nIdea: {analysis.idea}",
-                            "id": analysis.id,
-                            "commit_sha": analysis.commit_sha,
-                            "title": analysis.title,
-                            "repo_id": repo_id
-                        },
-                    )
-                    return doc
-                else:
-                    logger.warning(f"Failed to generate embedding for subcommit: {analysis.id}")
-                    return None
-            
-            # Create tasks for all analyses at once
-            tasks = [process_analysis(analysis) for analysis in all_analyses]
-            
-            # Process all analyses concurrently
-            embedding_results = await asyncio.gather(*tasks)
-            
-            # Filter out None results
-            documents = [doc for doc in embedding_results if doc is not None]
-            
-            logger.info(f"Created {len(documents)} documents with embeddings")
-            
-            # Insert all documents into ChromaDB at once
-            collection_name = f"{repo_id}"
-            insert_result = insert_document(documents, collection_name)
-            if "error" in insert_result:
-                logger.error(f"Error inserting documents into ChromaDB: {insert_result['error']}")
-                return {
-                    "status": "partial_success",
-                    "message": f"Successfully analyzed {len(list_commits)} commits and stored {len(all_analyses)} analyses, but encountered an error creating embedding space: {insert_result['error']}",
-                    "analyses_count": len(all_analyses),
-                    "embeddings_count": 0
-                }
-            
-            logger.info(f"Successfully created embedding space for {repo_id} with {len(documents)} embeddings")
             return {
                 "status": "success",
-                "message": f"Successfully analyzed {len(list_commits)} commits, stored {len(all_analyses)} analyses, and created embedding space with {len(documents)} embeddings.",
-                "analyses_count": len(all_analyses),
-                "embeddings_count": len(documents),
-                "collection_name": collection_name
+                "message": f"Successfully analyzed {len(list_commits)} commits, stored {len(all_analyses)} analyses"
             }
         else:
             logger.warning("No analyses were generated for the commits.")

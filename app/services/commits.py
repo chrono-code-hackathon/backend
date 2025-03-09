@@ -42,7 +42,7 @@ async def get_repository_commits(repo_url: str, access_token: Optional[str] = se
         repo_data = Repository(
             id=str(repo.id),
             name=repo.owner.login + "/" + repo.name,
-            url=repo.url,
+            url=repo_url,
         )
         try:
             repo_storage_result = supabase_service.store_repo([repo_data])

@@ -64,9 +64,9 @@ class SubCommitAnalysis(BaseModel):
     idea: str = Field(description="The core concept or purpose (max 15 sentences) explaining why this change was made and what problem it solves.")
     description: str = Field(description="A comprehensive technical explanation detailing implementation specifics, architectural changes, and potential downstream effects.")
     type: CommitType = Field(description="The primary category that best represents the nature of this change, selected from the CommitType enum.")
-    commit_sha: str = Field(default="", description="The SHA identifier of the parent commit. Automatically populated by the system.")
-    epic: str = Field(default="", description="The epic title that groups related sub-commits. Automatically populated by the system.")
-    files: List[File] = Field(default_factory=list, description="The specific files modified as part of this logical unit of work, including their patches and change statistics.")
+    commit_sha: str = Field(description="The SHA identifier of the parent commit.")
+    epic: str = Field(description="The epic title that groups related sub-commits.")
+    files: List[File] = Field(description="The specific files modified as part of this logical unit of work, including their patches and change statistics.")
 
 class SubCommitAnalysisList(BaseModel):
     """
@@ -97,3 +97,12 @@ class SubCommitNeighbors(BaseModel):
     and change type.
     """
     subcommits: List[SubCommitAnalysis] = Field(description="A collection of sub-commits that share semantic similarity with a reference sub-commit, ordered by relevance and thematic connection.")
+
+class SubCommitFileAnalysis(BaseModel):
+    """
+    Represents the file analysis for a specific SubCommit.
+    
+    This model identifies which specific files from the original commit
+    are relevant to a particular logical unit of work (SubCommit).
+    """
+    files: List[File] = Field(description="The specific files that are part of this logical unit of work.")

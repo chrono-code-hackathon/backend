@@ -34,7 +34,11 @@ async def analyze_commit(commit: Commit) -> List[SubCommitAnalysis]:
     """
     try:
         logger.info(f"Analyzing commit: {commit.sha}")
-        analysis_result = await get_commit_analysis(commit)
+        if commit.files and len(commit.files) > 0:
+            analysis_result = await get_commit_analysis(commit)
+        else:
+            logger.warning(f"Commit {commit.sha} has no files, skipping analysis")
+            return []
         if analysis_result and analysis_result.analysis:
             logger.info(f"Successfully analyzed commit: {commit.sha}")
             return analysis_result.analysis
@@ -42,6 +46,7 @@ async def analyze_commit(commit: Commit) -> List[SubCommitAnalysis]:
             logger.warning(f"No analyses generated for commit: {commit.sha}")
             return []
     except Exception as e:
+        print(e)
         logger.error(f"Error analyzing commit {commit.sha}: {str(e)}")
         return []
 
@@ -62,7 +67,8 @@ async def analyze_commits(request: CommitAnalysisRequest):
         try:
             # Fetch commits from the repository
             list_commits = await commits.get_repository_commits(request.repository_url, request.access_token)
-            
+
+            print(list_commits)
             # Handle the case where no commits are returned (either repo not found or no commits)
             if not list_commits:
                 logger.warning(f"No commits found or repository not found: {request.repository_url}")
@@ -155,6 +161,10 @@ async def update_analysis(request: UpdateAnalysisRequest):
             branch=request.branch, 
             path=request.path
         )
+        
+        # Filter commits for test purposes
+        test_hashes = ["c7bbf95983af1ee41b6cec39dba64e3c8227f7bd", "2cab1a7de446f4fdf6efc4b8f465de89d0826cca"]
+        list_commits = [commit for commit in list_commits if commit.sha in test_hashes]
         
         # Handle the case where no new commits are found
         if not list_commits:

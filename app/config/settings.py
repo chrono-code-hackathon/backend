@@ -16,5 +16,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 settings = Settings()

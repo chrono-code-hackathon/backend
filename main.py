@@ -2,6 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException, Security
 from fastapi.security import APIKeyHeader, APIKeyQuery
 from app.controllers.github_controller import router as github_router
 from app.controllers.analysis_controller import router as analysis_router
+from app.controllers.auth_controller import auth_router
+
 import uvicorn
 from app.config.settings import settings
 
@@ -35,6 +37,7 @@ app = FastAPI(
 # Include routers
 app.include_router(github_router, prefix="/api/v1")
 app.include_router(analysis_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 
 @app.get("/api/v1/", tags=["root"])
 async def root():

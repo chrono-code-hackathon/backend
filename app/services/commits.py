@@ -165,7 +165,7 @@ async def get_repository_commits(repo_url: str, access_token: Optional[str] = se
             # Store commits
             if commit_list:
                 commit_storage_result = await supabase_service.store_commits(commit_list)
-                logger.info(f"Commit storage result: {commit_storage_result}")
+                logger.info(f"Commit storage result success.")
                 
                 if "existing_commits" in commit_storage_result and len(commit_list) == len(commit_storage_result["existing_commits"]):
                     logger.info("All commits already analyzed.")

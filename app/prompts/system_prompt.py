@@ -1,4 +1,5 @@
-from app.models.models_commit import Commit, SubCommitNeighbors, SubCommitAnalysis
+from typing import List
+from app.models.models_commit import Commit, File, SubCommitNeighbors, SubCommitAnalysis
 
 def format_commit_analysis_prompt(commit: Commit):
     system_prompt = """
@@ -124,3 +125,55 @@ Return ONLY the most similar sub-commits. Exclude the target sub-commit from res
 """
 
     return system_prompt + prompt
+
+def format_subcommit_files_prompt(commit: Commit, subcommit: SubCommitAnalysis) -> str:
+    """
+    Format a prompt for analyzing which files from a commit belong to a specific subcommit.
+    
+    Args:
+        commit: The original commit containing all files
+        subcommit: The subcommit to analyze for file relevance
+        
+    Returns:
+        Formatted prompt string
+    """
+    prompt = f"""
+    # File Analysis Task
+    
+    ## Original Commit
+    - SHA: {commit.sha}
+    - Message: {commit.message}
+    - Description: {commit.description or "N/A"}
+    
+    ## Files in Original Commit
+    {format_files_list(commit.files)}
+    
+    ## SubCommit Information
+    - Title: {subcommit.title}
+    - Idea: {subcommit.idea}
+    - Description: {subcommit.description}
+    - Type: {subcommit.type}
+    
+    ## Task
+    Analyze which specific files from the original commit are relevant to this particular logical unit of work (SubCommit).
+   
+    """
+    
+    return prompt
+
+def format_files_list(files: List[File]) -> str:
+    """Helper function to format the list of files for the prompt"""
+    files_text = ""
+    for i, file in enumerate(files):
+        files_text += f"""
+        File {i+1}:
+        - Filename: {file.filename}
+        - Status: {file.status}
+        - Changes: +{file.additions}, -{file.deletions}, total: {file.changes}
+        - Patch:
+        ```
+        {file.patch or "No patch available"}
+        ```
+        
+        """
+    return files_text

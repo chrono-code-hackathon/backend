@@ -41,4 +41,3 @@ async def get_text_embedding(texts: list[str]) -> list[float]:
         A list of floats representing the embedding.
     """
     return await embedding_model.get_embedding(texts)
-    return await embedding_model.get_embedding(texts)

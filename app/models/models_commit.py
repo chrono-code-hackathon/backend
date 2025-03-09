@@ -130,4 +130,4 @@ class ChatResponse(BaseModel):
     the exact set of subcommit IDs that were relevant to generating the response.
     """
     response: str = Field(description="The detailed textual response addressing the user's query. Without any additional text.")
-    subcommits_ids: List[int] = Field(description="The precise and complete list of subcommit IDs that are directly relevant to the user's query. Only include IDs that were actually used to inform the response, with no extraneous IDs.")
+    subcommits_ids: List[int] = Field(default=[],description="The precise and complete list of subcommit IDs that are directly relevant to the user's query. Only include IDs that were actually used to inform the response, with no extraneous IDs.")

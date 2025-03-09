@@ -184,9 +184,9 @@ def store_repo(repos: List[Repository]) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-# def test_connection() -> Dict[str, Any]:
-#     """
-#     Test the Supabase connection.
+def test_connection() -> Dict[str, Any]:
+    """
+    Test the Supabase connection.
     
     Returns:
         Dictionary with test result
@@ -202,6 +202,6 @@ def store_repo(repos: List[Repository]) -> Dict[str, Any]:
         logger.info("Supabase connection successful")
         return {"message": "Supabase connection successful", "data": data.data}
     
-#     except Exception as e:
-#         logger.error(f"Error testing Supabase connection: {e}")
-#         return {"error": str(e)} 
+    except Exception as e:
+        logger.error(f"Error testing Supabase connection: {e}")
+        return {"error": str(e)} 

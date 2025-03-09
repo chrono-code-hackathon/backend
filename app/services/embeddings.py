@@ -13,7 +13,6 @@ class EmbeddingModel:
         return cls._instance
 
     async def get_embedding(self, texts: list[str]) -> list[float]:
-    async def get_embedding(self, texts: list[str]) -> list[float]:
         try:
             response = self._client.models.embed_content(
                 model="text-embedding-004",
@@ -31,7 +30,6 @@ class EmbeddingModel:
 
 embedding_model = EmbeddingModel()
 
-async def get_text_embedding(texts: list[str]) -> list[float]:
 async def get_text_embedding(texts: list[str]) -> list[float]:
     """
     Generates a text embedding for the given text using the Gemini API.

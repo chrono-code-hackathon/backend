@@ -85,18 +85,18 @@ async def analyze_commits(request: CommitAnalysisRequest):
         batch_size = settings.BATCH_SIZE if hasattr(settings, 'BATCH_SIZE') else 50
         logger.info(f"Using batch size: {batch_size}")
         
-        # Process commits in batches
-        for i in range(0, len(list_commits), batch_size):
-            batch = list_commits[i:i + batch_size]
-            logger.info(f"Processing batch {i // batch_size + 1} of size {len(batch)}")
-            
-            # Use the new batch analysis function
-            batch_analyses = await analyze_commits_batch(batch)
-            logger.info(f"Completed analysis for batch {i // batch_size + 1}")
-            
-            # Add the analyses to the overall list
-            if batch_analyses:
-                all_analyses.extend(batch_analyses)
+        # Create batches
+        batches = [list_commits[i:i + batch_size] for i in range(0, len(list_commits), batch_size)]
+        logger.info(f"Split commits into {len(batches)} batches")
+        
+        # Process all batches concurrently
+        batch_tasks = [analyze_commits_batch(batch) for batch in batches]
+        batch_results = await asyncio.gather(*batch_tasks)
+        
+        # Combine all results
+        for batch_result in batch_results:
+            if batch_result:
+                all_analyses.extend(batch_result)
         
         logger.info(f"Generated a total of {len(all_analyses)} analyses")
         
@@ -170,18 +170,18 @@ async def update_analysis(request: UpdateAnalysisRequest):
         batch_size = settings.BATCH_SIZE if hasattr(settings, 'BATCH_SIZE') else 50
         logger.info(f"Using batch size: {batch_size}")
         
-        # Process commits in batches
-        for i in range(0, len(list_commits), batch_size):
-            batch = list_commits[i:i + batch_size]
-            logger.info(f"Processing batch {i // batch_size + 1} of size {len(batch)}")
-            
-            # Use the new batch analysis function
-            batch_analyses = await analyze_commits_batch(batch)
-            logger.info(f"Completed analysis for batch {i // batch_size + 1}")
-            
-            # Add the analyses to the overall list
-            if batch_analyses:
-                all_analyses.extend(batch_analyses)
+        # Create batches
+        batches = [list_commits[i:i + batch_size] for i in range(0, len(list_commits), batch_size)]
+        logger.info(f"Split commits into {len(batches)} batches")
+        
+        # Process all batches concurrently
+        batch_tasks = [analyze_commits_batch(batch) for batch in batches]
+        batch_results = await asyncio.gather(*batch_tasks)
+        
+        # Combine all results
+        for batch_result in batch_results:
+            if batch_result:
+                all_analyses.extend(batch_result)
         
         logger.info(f"Generated a total of {len(all_analyses)} analyses")
         

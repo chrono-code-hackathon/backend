@@ -246,10 +246,6 @@ async def update_analysis(request: UpdateAnalysisRequest):
             path=request.path
         )
         
-        # Filter commits for test purposes
-        test_hashes = ["c7bbf95983af1ee41b6cec39dba64e3c8227f7bd", "2cab1a7de446f4fdf6efc4b8f465de89d0826cca"]
-        list_commits = [commit for commit in list_commits if commit.sha in test_hashes]
-        
         # Handle the case where no new commits are found
         if not list_commits:
             logger.info(f"No new commits found for repository: {request.repository_url}")

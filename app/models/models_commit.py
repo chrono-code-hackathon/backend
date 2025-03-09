@@ -65,7 +65,6 @@ class SubCommitAnalysis(BaseModel):
     description: str = Field(description="A comprehensive technical explanation detailing implementation specifics, architectural changes, and potential downstream effects.")
     type: CommitType = Field(description="The primary category that best represents the nature of this change, selected from the CommitType enum.")
     commit_sha: str = Field(description="The SHA identifier of the parent commit.")
-    epic: str = Field(description="The epic title that groups related sub-commits.")
     files: List[File] = Field(description="The specific files modified as part of this logical unit of work, including their patches and change statistics.")
 
 class SubCommitAnalysisList(BaseModel):

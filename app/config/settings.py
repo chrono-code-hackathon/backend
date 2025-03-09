@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_KEY: str
     API_KEY: str = "CHRONOCODE123"
+    retries: int = 3
     class Config:
         env_file = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
         env_file_encoding = "utf-8"

@@ -2,49 +2,30 @@ from app.models.models_commit import Commit, SubCommitNeighbors, SubCommitAnalys
 
 def format_commit_analysis_prompt(commit: Commit):
     system_prompt = """
-You are a Commit Expert Analyzer with deep expertise in software development, version control, and code analysis.
+You are a Commit Expert Analyzer specializing in code analysis and software development patterns.
 
-# Your Task
-Analyze the provided commit and break it down into logical "SubCommits" - smaller, focused units of work that may be contained within a single GitHub commit.
+# Task
+Identify distinct logical units of work ("SubCommits") within this single GitHub commit.
 
-Many commits modify multiple files and address multiple concerns or topics. Your job is to identify these distinct logical units of work within the commit and analyze each one separately.
-
-# What is a SubCommit?
-A SubCommit is a logical, focused unit of work contained within a larger commit. For example, a single GitHub commit might:
-1. Fix a bug in the authentication system
-2. Update documentation
-3. Refactor a utility function
-
-Each of these would be considered a separate SubCommit, even though they were all pushed in one GitHub commit.
-
-# Input Format
-You will receive a commit with the following information:
-- Commit message
-- Author information
-- Date
-- Files changed (with additions and deletions)
-- Diff content showing the exact changes
+# SubCommit Definition
+A SubCommit is ONE focused, logical change within a larger commit. Example: a commit might contain bug fixes, documentation updates, and refactoring - each is a separate SubCommit.
 
 # Analysis Requirements
-For EACH identified SubCommit, provide:
+For EACH SubCommit, provide:
+1. Title: Concise description (5-10 words)
+2. Idea: Core purpose of this specific change (1-2 sentences)
+3. Description: Technical explanation of changes, implementation details, and implications (3-5 sentences)
+4. Type: Categorize as FEATURE, BUG, REFACTOR, DOCS, TEST, STYLE, CHORE, MILESTONE, or WARNING
 
-1. Title: A concise, descriptive title for this specific unit of work
-2. Idea: The core concept or purpose behind this specific change
-3. Description: A detailed technical explanation of what was changed, how it works, and why it matters
-4. Type: Categorize the SubCommit (e.g., 'bug fix', 'feature', 'refactoring', 'documentation', 'performance', 'security', etc.)
-
-# Output Guidelines
-- Identify ALL distinct units of work in the commit
-- Each SubCommit should be focused on ONE logical change
-- Be thorough and detailed in your analysis of each SubCommit
-- Support your conclusions with specific evidence from the code changes
-- If a commit truly contains only one logical change, return just one SubCommit
-
-Your analysis will be used to understand development patterns, improve code quality, and provide a more granular view of the development history beyond what the raw commit history shows.
+# Guidelines
+- Identify ALL distinct units of work
+- Each SubCommit must focus on ONE logical change
+- Support conclusions with specific code evidence
+- If truly only one logical change exists, return just one SubCommit
 """
 
     # Format the commit details to include in the prompt
-    files_details = "\n".join([f"- {file.filename} (additions: {file.additions}, deletions: {file.deletions}, changes: {file.changes}, status: {file.status}, patch (Exactly code changes): {file.patch})" for file in commit.files])
+    files_details = "\n".join([f"- {file.filename} (additions: {file.additions}, deletions: {file.deletions}, changes: {file.changes}, status: {file.status}, patch: {file.patch})" for file in commit.files])
 
     commit_details = f"""
 # Commit Details
@@ -53,9 +34,6 @@ Your analysis will be used to understand development patterns, improve code qual
 - Date: {commit.date}
 - Files Changed: {len(commit.files)} files
 {files_details}
-
-# Changes
-{commit.message}
 """
 
     # Combine the system prompt with the commit details
@@ -72,22 +50,16 @@ def format_epic_analysis_prompt(neighbors: SubCommitNeighbors) -> str:
         str: The formatted prompt.
     """
     system_prompt = """
-You are an expert software engineer whose job is to analyze a list of subcommits and generate a title for an epic that groups them together.
+You are an Epic Title Generator for software development projects.
 
-# Input Format
-You will receive a list of subcommits with the following information for each subcommit:
-- Title: A concise, descriptive title for this specific unit of work
-- Idea: The core concept or purpose behind this specific change
-- Description: A detailed technical explanation of what was changed, how it works, and why it matters
-- Type: Categorize the SubCommit (e.g., 'bug fix', 'feature', 'refactoring', 'documentation', 'performance', 'security', etc.)
+# Task
+Generate a precise, concise title (5-8 words) for an epic that groups these related subcommits.
 
-# Analysis Requirements
-Based on the provided subcommits, generate a title for an epic that accurately reflects the overall theme or purpose of the grouped subcommits. The title should be concise and descriptive.
-
-# Output Guidelines
-- The title should be very short and precise.
-- The title should accurately represent the changes in the subcommits.
-- Focus on the common theme or goal that unites the subcommits.
+# Guidelines
+- Title must capture the common theme or purpose
+- Be extremely specific about what changed
+- Focus on technical substance, not process
+- Avoid generic terms like "improvements" or "updates"
 """
 
     subcommits_details = "\n".join([f"""
@@ -116,25 +88,24 @@ def format_subcommit_neighbors_prompt(subcommit_analysis: SubCommitAnalysis) -> 
         str: The formatted prompt.
     """
     system_prompt = """
-You are an expert software engineer whose job is to identify semantically similar sub-commits from a larger list of sub-commits.
-
-# Input Format
-You will receive a sub-commit with the following information:
-- Title: A concise, descriptive title for this specific unit of work
-- Idea: The core concept or purpose behind this specific change
-- Description: A detailed technical explanation of what was changed, how it works, and why it matters
-- Type: Categorize the SubCommit (e.g., 'bug fix', 'feature', 'refactoring', 'documentation', 'performance', 'security', etc.)
+You are a Semantic Similarity Analyzer for code changes.
 
 # Task
-Identify other sub-commits that are semantically similar to the given sub-commit.
-Semantic similarity means that the sub-commits address related concerns, solve similar problems, or modify related parts of the codebase.
+Identify semantically similar sub-commits from the provided list.
 
-# Output Guidelines
-Return a list of the most similar sub-commits.
+# Similarity Criteria (in priority order)
+1. Technical domain (authentication, database, UI, etc.)
+2. Modified components or subsystems
+3. Problem being solved
+4. Implementation approach
+5. Change type (feature, bug fix, etc.)
+
+# Output Requirements
+Return ONLY the most similar sub-commits, ranked by similarity.
 """
 
     subcommit_details = f"""
-## SubCommit
+## Target SubCommit
 - Title: {subcommit_analysis.title}
 - Idea: {subcommit_analysis.idea}
 - Description: {subcommit_analysis.description}
@@ -142,15 +113,14 @@ Return a list of the most similar sub-commits.
 """
 
     prompt = f"""
-# SubCommit Details
+# Target SubCommit Details
 {subcommit_details}
 
-# Other SubCommits (to be provided at runtime)
+# Candidate SubCommits (to be provided at runtime)
 [List of other sub-commits will be inserted here]
 
 # Instructions
-Analyze the provided SubCommit details and identify the sub-commits from the 'Other SubCommits' list that are most semantically similar.
-Return ONLY the list of similar sub-commits. Do not include the original sub-commit in the returned list.
+Return ONLY the most similar sub-commits. Exclude the target sub-commit from results.
 """
 
     return system_prompt + prompt

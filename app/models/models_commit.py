@@ -4,6 +4,7 @@ from typing import List, Optional
 
 class Repository(BaseModel):
     name: str
+    id: str
     url: str
     
 class File(BaseModel):
@@ -17,7 +18,6 @@ class File(BaseModel):
     patch: Optional[str]
 
 class Commit(BaseModel):
-    created_at: Optional[str]
     sha: str
     author: str
     date: str
@@ -26,7 +26,7 @@ class Commit(BaseModel):
     author_email: str
     description: Optional[str]
     author_url: str
-    repo_id: int = 0
+    repo_id: str = ""
     files: List[File]
 
 class CommitType(str, Enum):
@@ -36,8 +36,6 @@ class CommitType(str, Enum):
     BUG: Correction of errors, unexpected behavior, or issues affecting functionality
     REFACTOR: Code restructuring, optimization, or cleanup without changing external behavior
     DOCS: Documentation updates, comments, README changes, or other non-code explanatory content
-    TEST: Addition or modification of test cases, test infrastructure, or testing utilities
-    STYLE: Code formatting, whitespace changes, or other cosmetic adjustments
     CHORE: Routine maintenance tasks, dependency updates, version bumps, or build process changes
     MILESTONE: Significant project achievement, version release, or major integration point
     WARNING: Introduction of potential issues, technical debt, or code that requires future attention
@@ -46,8 +44,6 @@ class CommitType(str, Enum):
     BUG = "BUG"
     REFACTOR = "REFACTOR"
     DOCS = "DOCS"
-    TEST = "TEST"
-    STYLE = "STYLE"
     CHORE = "CHORE"
     MILESTONE = "MILESTONE"
     WARNING = "WARNING"
@@ -63,14 +59,13 @@ class SubCommitAnalysis(BaseModel):
     For example, a single GitHub commit might contain multiple logical changes like
     fixing a bug, updating documentation, and refactoring code - each would be a separate SubCommit.
     """
-    repo_name: str = Field(default="", description="The name of the repository.")
-    title: str = Field(description="A concise, descriptive title summarizing this specific unit of work within the commit.")
-    idea: str = Field(description="The core concept or purpose behind this specific change, explaining the 'why' of this particular modification.")
-    description: str = Field(description="A detailed technical explanation of what was changed, how it works, why it matters, and any potential implications or considerations.")
-    type: CommitType = Field(description="The category of change (e.g., 'bug fix', 'feature', 'refactoring', 'documentation', 'performance', 'security', etc.).")
-    commit_sha: str = Field(default="", description="IGNORE THIS FIELD. It is automatically populated by the system.")
-    epic: str = Field(default="", description="IGNORE THIS FIELD. It is automatically populated by the system.")
-    files: List[File] = Field(description="The list of files associated with this sub-commit.")
+    title: str = Field(description="A concise, specific title (5-10 words) that precisely captures what this unit of work accomplishes.")
+    idea: str = Field(description="The core concept or purpose (max 15 sentences) explaining why this change was made and what problem it solves.")
+    description: str = Field(description="A comprehensive technical explanation detailing implementation specifics, architectural changes, and potential downstream effects.")
+    type: CommitType = Field(description="The primary category that best represents the nature of this change, selected from the CommitType enum.")
+    commit_sha: str = Field(default="", description="The SHA identifier of the parent commit. Automatically populated by the system.")
+    epic: str = Field(default="", description="The epic title that groups related sub-commits. Automatically populated by the system.")
+    files: List[File] = Field(default_factory=list, description="The specific files modified as part of this logical unit of work, including their patches and change statistics.")
 
 class SubCommitAnalysisList(BaseModel):
     """
@@ -81,18 +76,23 @@ class SubCommitAnalysisList(BaseModel):
     within a single commit. Each SubCommit focuses on ONE logical change, even if
     the original commit contained multiple unrelated changes.
     """
-    analysis: List[SubCommitAnalysis] = Field(description="The list of SubCommit analyses, where each item represents a distinct, focused unit of work identified within the original commit.")
+    analysis: List[SubCommitAnalysis] = Field(description="The complete set of distinct, focused units of work extracted from the original commit, where each unit addresses exactly one logical change or purpose.")
 
 class Epic(BaseModel):
     """
     Represents an Epic, grouping related sub-commits.
+    
+    An Epic captures the common theme or purpose across multiple related sub-commits,
+    providing a higher-level view of software development activities.
     """
-    title: str = Field(description="Generate a full very short title for an epic given the subcommits lists, must be very precise the title representing the changes in the subcommits")
+    title: str = Field(description="A precise, concise title (5-8 words) that captures the common theme or technical purpose unifying the related sub-commits, focusing on technical substance rather than process, and avoiding generic terms like 'improvements' or 'updates'.")
 
 class SubCommitNeighbors(BaseModel):
     """
     Represents the neighboring sub-commits of a given sub-commit.
-    This model contains a list of the most semantically similar sub-commits to a given input sub-commit.
+    
+    This model contains a list of the most semantically similar sub-commits to a given input sub-commit,
+    based on technical domain, modified components, problem being solved, implementation approach,
+    and change type.
     """
-    subcommits: List[SubCommitAnalysis] = Field(description="The list of sub-commits that are the most similar neighbors to the given sub-commit, based on semantic similarity.")
-
+    subcommits: List[SubCommitAnalysis] = Field(description="A collection of sub-commits that share semantic similarity with a reference sub-commit, ordered by relevance and thematic connection.")

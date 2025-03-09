@@ -3,6 +3,9 @@ from app.models.models_commit import Epic, SubCommitAnalysisList, Commit, SubCom
 from app.config.settings import settings
 from app.prompts.system_prompt import format_commit_analysis_prompt, format_epic_analysis_prompt, format_subcommit_neighbors_prompt
 from app.logger.logger import logger
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+import asyncio
+from typing import List, Dict, Any
 
 gemini_2_0_flash = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2, api_key=settings.GOOGLE_API_KEY)
 
@@ -10,6 +13,12 @@ model_structured_commit_analysis = gemini_2_0_flash.with_structured_output(SubCo
 model_structured_subcommit_neighbors = gemini_2_0_flash.with_structured_output(SubCommitNeighbors)
 model_structured_epic_analysis = gemini_2_0_flash.with_structured_output(Epic)
 
+@retry(
+    stop=stop_after_attempt(settings.retries),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(Exception),
+    reraise=True
+)
 async def get_commit_analysis(commit: Commit) -> SubCommitAnalysisList:
     logger.info(f"Analyzing commit: {commit.sha}")
     formatted_prompt = format_commit_analysis_prompt(commit)
@@ -23,6 +32,43 @@ async def get_commit_analysis(commit: Commit) -> SubCommitAnalysisList:
         subcommit.commit_sha = commit.sha
     return analysis_result
 
+async def analyze_commits_batch(commits: List[Commit]) -> List[SubCommitAnalysis]:
+    """
+    Analyze a batch of commits concurrently using asyncio.gather
+    
+    Args:
+        commits: List of Commit objects to analyze
+        
+    Returns:
+        List of SubCommitAnalysis objects
+    """
+    logger.info(f"Starting concurrent analysis of {len(commits)} commits")
+    
+    # Create tasks for each commit
+    tasks = [get_commit_analysis(commit) for commit in commits]
+    
+    # Execute all tasks concurrently
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Process results
+    all_analyses = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            logger.error(f"Error analyzing commit {commits[i].sha}: {str(result)}")
+        elif result and result.analysis:
+            all_analyses.extend(result.analysis)
+        else:
+            logger.warning(f"No analyses generated for commit: {commits[i].sha}")
+    
+    logger.info(f"Completed concurrent analysis, generated {len(all_analyses)} analyses")
+    return all_analyses
+
+@retry(
+    stop=stop_after_attempt(settings.retries),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(Exception),
+    reraise=True
+)
 async def get_epic_analysis(neighbors: SubCommitNeighbors) -> Epic:
     logger.info(f"Analyzing epic based on {len(neighbors.neighbors)} neighbors")
     formatted_prompt = format_epic_analysis_prompt(neighbors)
@@ -33,6 +79,12 @@ async def get_epic_analysis(neighbors: SubCommitNeighbors) -> Epic:
     logger.info(f"Successfully analyzed epic")
     return epic_result
 
+@retry(
+    stop=stop_after_attempt(settings.retries),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(Exception),
+    reraise=True
+)
 async def get_subcommit_neighbors_analysis(subcommit_analysis: SubCommitAnalysis) -> SubCommitNeighbors:
     logger.info(f"Analyzing subcommit neighbors for: {subcommit_analysis.sub_commit_id}")
     formatted_prompt = format_subcommit_neighbors_prompt(subcommit_analysis)

@@ -29,10 +29,10 @@ def get_client() -> Optional[Client]:
         logger.error(f"Error creating Supabase client: {e}")
         return None
 
-
-def store_commits(commits: List[Commit]) -> Dict[str, Any]:
+import asyncio
+async def store_commits(commits: List[Commit]) -> Dict[str, Any]:
     """
-    Store commits in Supabase, handling potential duplicates efficiently.
+    Store commits in Supabase in batches, handling potential duplicates efficiently.
 
     Args:
         commits: List of Commit objects
@@ -47,36 +47,44 @@ def store_commits(commits: List[Commit]) -> Dict[str, Any]:
             logger.error("Failed to initialize Supabase client")
             return {"error": "Failed to initialize Supabase client"}
 
-        commits_data = [commit.dict() for commit in commits]
+        inserted_commits = []
+        existing_commits = []
+        errors = []
+        batch_size = settings.BATCH_SIZE if hasattr(settings, 'BATCH_SIZE') else 50
 
-        # Fetch existing commit SHAs in a single query
-        existing_commits_query = supabase.table('commits').select('sha').in_('sha', [commit['sha'] for commit in commits_data])
-        existing_commits_result = existing_commits_query.execute()
-        existing_shas = {item['sha'] for item in existing_commits_result.data}
+        for i in range(0, len(commits), batch_size):
+            batch = commits[i:i + batch_size]
+            commits_data = [commit.model_dump() for commit in batch]
 
-        new_commits_data = [commit for commit in commits_data if commit['sha'] not in existing_shas]
+            # Prepare data for insertion
+            for commit_data in commits_data:
+                try:
+                    result = supabase.table('commits').insert(commit_data).execute()
+                    if result.data:
+                        inserted_commits.append(commit_data)
+                except Exception as e:
+                    if "duplicate key value violates unique constraint" in str(e):
+                        logger.warning(f"Commit with SHA {commit_data['sha']} already exists.")
+                        existing_commits.append(commit_data['sha'])
+                    else:
+                        logger.error(f"Error inserting commit {commit_data['sha']}: {str(e)}")
+                        errors.append(str(e))
 
-        inserted_count = 0
-        if new_commits_data:
-            try:
-                # Insert new commits in a single batch
-                insert_result = supabase.table('commits').insert(new_commits_data).execute()
-                inserted_count = len(insert_result.data) if insert_result.data else 0
-                logger.info(f"Inserted {inserted_count} new commits")
-            except Exception as insert_error:
-                logger.error(f"Error inserting commits: {insert_error}")
-                return {"error": str(insert_error)}
-        else:
-            logger.info("No new commits to insert")
+        inserted_count = len(inserted_commits)
+        existing_count = len(existing_commits)
+        
+        if errors:
+            error_message = f"Errors occurred during commit insertion: {errors}"
+            logger.error(error_message)
+            return {"error": error_message}
 
-        existing_count = len(commits) - inserted_count
         result_message = f"Successfully processed {len(commits)} commits. Inserted {inserted_count} new commits. {existing_count} commits already existed."
         logger.info(result_message)
 
         return {
             "message": result_message,
-            "inserted_commits": new_commits_data,
-            "existing_commits": existing_count
+            "inserted_commits": inserted_commits,
+            "existing_commits": existing_commits
         }
 
     except Exception as e:
@@ -104,64 +112,75 @@ def store_commit_analyses(analyses: List[SubCommitAnalysis]) -> Dict[str, Any]:
 
         # Convert SubCommitAnalysis objects to dictionaries
         analyses_data = [analysis.dict() for analysis in analyses]
+
+        # Fetch existing commit_sha values
+        existing_analyses_query = supabase.table('commit_analyses').select('commit_sha').in_('commit_sha', [analysis['commit_sha'] for analysis in analyses_data])
+        existing_analyses_result = existing_analyses_query.execute()
+        existing_commit_shas = {item['commit_sha'] for item in existing_analyses_result.data}
+
+        # Filter out analyses that already exist
+        new_analyses_data = [analysis for analysis in analyses_data if analysis['commit_sha'] not in existing_commit_shas]
             
-        result = supabase.table('commit_analyses').insert(analyses_data).execute()
-        inserted_count = len(result.data) if result.data else 0
+        inserted_count = 0
+        if new_analyses_data:
+            result = supabase.table('commit_analyses').insert(new_analyses_data).execute()
+            inserted_count = len(result.data) if result.data else 0
         
         result_message = f"Successfully processed {len(analyses)} analyses. Inserted {inserted_count} new analyses."
         logger.info(result_message)
         return {
             "message": result_message,
-            "inserted_analyses": analyses
+            "inserted_analyses": new_analyses_data
         }
     
     except Exception as e:
         logger.error(f"Error storing commit analyses: {e}")
         return {"error": str(e)}
 
+class AlreadyAnalyzedRepositoryError(Exception):
+    """Exception raised for errors in the repository."""
+    def __init__(self, message="Repository has already been analyzed."):
+        self.message = message
+        super().__init__(self.message)
+
 def store_repo(repos: List[Repository]) -> Dict[str, Any]:
     """
-    Store repositories in Supabase.
-
+    Store repository information in Supabase.
+    Handles potential duplicate key errors by checking for existing repositories.
+    
     Args:
-        repo: List of Repository objects
-
+        repos: List of Repository objects to store
+        
     Returns:
-        Dictionary with result information
+        Dict with status of the operation
     """
     try:
-        logger.info(f"Storing {len(repos)} repositories in Supabase")
-        # Initialize Supabase client
         supabase = get_client()
         if not supabase:
-            logger.error("Failed to initialize Supabase client")
-            return {"error": "Failed to initialize Supabase client"}
-
-        repos_data = [repo.dict() for repo in repos]
-
-        # Check if repo already exists
-        existing_repos = supabase.table('repositories').select('name').in_('name', [repo['name'] for repo in repos_data]).execute()
-        existing_names = [item['name'] for item in existing_repos.data]
-
-        # Filter out repos that already exist
-        new_repos_data = [repo for repo in repos_data if repo['name'] not in existing_names]
-
-        if new_repos_data:
-            # Insert new repo
-            try:
-                result = supabase.table('repositories').insert(new_repos_data).execute()
-                inserted_count = len(result.data) if result.data else 0
-                logger.info(f"Inserted {inserted_count} repositories")
-                return {"message": f"Successfully inserted {inserted_count} repositories", "data": new_repos_data}
-            except Exception as insert_error:
-                logger.error(f"Error inserting repositories: {insert_error}")
-                return {"error": str(insert_error)}
-        else:
-            logger.info(f"Repositories already exists")
-            return {"message": f"Repositories already exists"}
-
+            return {"error": "Failed to connect to Supabase"}
+        
+        logger.info(f"Storing {len(repos)} repositories in Supabase")
+        
+        # Convert Repository objects to dictionaries
+        new_repos_data = [repo.model_dump() for repo in repos]
+        
+        # Attempt to insert repositories into Supabase
+        try:
+            result = supabase.table('repositories').insert(new_repos_data).execute()
+            # Success case - just return the data
+            return {"message": f"Successfully stored repositories", "data": result.data}
+        except Exception as e:
+            logger.error(f"Error inserting repositories: {str(e)}")
+            # Check if the error is a duplicate key violation
+            if "duplicate key value violates unique constraint" in str(e):
+                logger.warning("Duplicate key violation detected. Repository likely already analyzed.")
+                return {"error": "Repository already analyzed", "code": "duplicate_key"}
+            else:
+                # If it's another type of error, return the error message
+                return {"error": str(e)}
+            
     except Exception as e:
-        logger.error(f"Error storing repositories: {e}")
+        logger.error(f"Error storing repositories: {str(e)}")
         return {"error": str(e)}
 
 

@@ -1,9 +1,11 @@
+import asyncio
 from fastapi import FastAPI
+import uvicorn
 from app.controllers.github_controller import router as github_router
 
-from app.services.commits import get_repository_commits
-
-from app.services.supabase_service import store_commits, store_repository
+from app.models.models_AI import Document
+from app.services.chromadb_service import get_k_neighbors, insert_document
+from app.services.embeddings import get_text_embedding
 
 app = FastAPI(
     title="GitHub API",

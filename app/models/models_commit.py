@@ -33,3 +33,4 @@ class CommitAnalysis(BaseModel):
     type: str
     epic: str 
     files: List[File]
+

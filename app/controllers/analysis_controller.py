@@ -333,7 +333,7 @@ async def create_embedding_space(request: EmbeddingSpaceRequest):
         logger.error(f"Error in create_embedding_space endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error creating embedding space: {str(e)}")
 
-@router.post("/query-commits")
+@router.post("/query-commits", response_model=ChatResponse)
 async def query_commits(request: QueryCommitsRequest):
     """
     Endpoint to query commit analyses using semantic search.
@@ -373,7 +373,6 @@ async def query_commits(request: QueryCommitsRequest):
         subcommit_ids = [int(result["id"]) for result in results]
         
         # Generate AI response based on the retrieved results
-        chat_response = None
         if results:
             try:
                 # Call Gemini to generate a response based on the retrieved subcommits
@@ -382,19 +381,15 @@ async def query_commits(request: QueryCommitsRequest):
                     user_query=request.query
                 )
                 logger.info("Successfully generated AI response for the query")
+                return chat_response
             except Exception as e:
                 logger.error(f"Error generating AI response: {str(e)}")
-                return {
-                    "status": "error",
-                    "message": f"Error generating AI response: {str(e)}",
-                    "subcommits_ids": subcommit_ids
-                }
-        
-        # Return the response in the requested format
-        return {
-            "status": "success",
-            "response": chat_response
-        }
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Error generating AI response: {str(e)}"
+                )
+        else:
+            return ChatResponse(response="No relevant commit information found for your query.")
         
     except Exception as e:
         logger.error(f"Error in query_commits endpoint: {str(e)}")

@@ -25,7 +25,7 @@ async def get_repository_commits(repo_url: str, access_token: Optional[str] = se
         List of Commit objects
     """
     
-    g = Github(access_token) if access_token else Github()
+    g = Github(access_token, per_page=100, retry=3) if access_token else Github()
 
     try:
         logger.info(f"Fetching commits from repo: {repo_url}, branch: {branch}, path: {path}")
@@ -33,6 +33,7 @@ async def get_repository_commits(repo_url: str, access_token: Optional[str] = se
         repo_name = repo_name.replace(".git", "") if repo_name.endswith(".git") else repo_name
         try:
             repo = g.get_repo(repo_name)
+            print(repo)
             logger.info(f"Repository found: {repo.full_name}")
         except Exception as e:
             logger.error(f"Error finding repository: {e}")

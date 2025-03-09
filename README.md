@@ -1,6 +1,72 @@
-# GitHub API
+# GitHub OAuth Implementation
 
-A simple FastAPI application that provides endpoints to retrieve GitHub repository information using PyGithub.
+This project implements a GitHub OAuth flow for authentication in a FastAPI application.
+
+## How It Works
+
+1. **Frontend OAuth Flow**:
+   - User clicks "Login with GitHub" on the frontend
+   - Frontend redirects to GitHub OAuth page
+   - After authorization, GitHub redirects back with an authorization code
+   - Frontend sends this code to the backend
+
+2. **Backend Token Exchange**:
+   - Backend exchanges the code for a GitHub access token
+   - Access token is sent back to the frontend
+
+3. **Token Storage**:
+   - Frontend stores the token in localStorage
+   - The token is used for subsequent API requests
+
+4. **Protected API Requests**:
+   - Frontend includes the token in the Authorization header
+   - Backend uses the token to make GitHub API requests
+
+## Setup
+
+1. Create a `.env` file with the following variables:
+   ```
+   GITHUB_CLIENT_ID=your_github_client_id
+   GITHUB_CLIENT_SECRET=your_github_client_secret
+   ```
+
+2. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Run the server:
+   ```
+   python main.py
+   ```
+
+## CORS Configuration
+
+The API is configured to allow cross-origin requests from any origin during development. This makes it easy to develop with a separate frontend application.
+
+For production, you should restrict CORS to specific domains. An example of how to do this is commented in the `main.py` file.
+
+## API Endpoints
+
+- `POST /api/v1/auth/exchange_code`: Exchange GitHub authorization code for an access token
+- Protected endpoints under `/api/v1/github/` and `/api/v1/analysis/` require a valid GitHub token
+
+## Frontend Integration
+
+```javascript
+// Example of how to use the token in frontend requests
+async function fetchUserData() {
+  const token = localStorage.getItem('github_token');
+  
+  const response = await fetch('/api/v1/github/user', {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  return await response.json();
+}
+```
 
 ## Features
 

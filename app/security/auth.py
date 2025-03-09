@@ -36,3 +36,15 @@ def exchange_code_for_token(auth_code: str, redirect_uri: Optional[str] = None) 
             "error": str(e),
             "success": False
         }
+
+def get_github_client(access_token: str) -> Github:
+    """
+    Create an authenticated GitHub client using an access token.
+    
+    Args:
+        access_token: GitHub access token
+        
+    Returns:
+        Authenticated GitHub client
+    """
+    return Github(access_token)

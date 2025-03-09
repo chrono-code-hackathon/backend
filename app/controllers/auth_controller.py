@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 from typing import Optional
+from fastapi.middleware.cors import CORSMiddleware
 
 # Import access functions
 from app.security.auth import exchange_code_for_token
@@ -34,6 +35,20 @@ class OAuthTokenResponse(BaseModel):
             }
         }
 
+# Handle OPTIONS preflight request
+@auth_router.options("/exchange_code")
+async def options_exchange_code(response: Response):
+    """
+    Handle OPTIONS preflight request for the exchange_code endpoint.
+    This is needed for CORS to work properly with some browsers.
+    """
+    # Manually add CORS headers to ensure they're present
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return {}
+
 @auth_router.post(
     "/exchange_code", 
     response_model=OAuthTokenResponse,
@@ -51,8 +66,7 @@ class OAuthTokenResponse(BaseModel):
         }
     }
 )
-
-async def api_exchange_code_for_token(request: Request):
+async def api_exchange_code_for_token(request: Request, response: Response):
     """
     # Exchange GitHub OAuth Code for Access Token
     
@@ -91,7 +105,16 @@ async def api_exchange_code_for_token(request: Request):
         "scope": "repo,user"
     }    ```
     """
-    data = await request.json()
+    # Manually add CORS headers to ensure they're present
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    try:
+        data = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
+        
     code = data.get("code")
     
     if not code:

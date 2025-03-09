@@ -13,8 +13,13 @@ class Settings(BaseSettings):
     API_KEY: str = "CHRONOCODE123"
     retries: int = 3
     OPENAI_API_KEY: str
+    # GitHub OAuth settings
+    GITHUB_CLIENT_ID: str
+    GITHUB_CLIENT_SECRET: str
+    
     class Config:
         env_file = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
         env_file_encoding = "utf-8"
+        extra = "allow"
 
 settings = Settings()

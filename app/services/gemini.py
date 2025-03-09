@@ -1,4 +1,5 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from app.models.models_commit import Epic, SubCommitAnalysisList, Commit, SubCommitNeighbors, SubCommitAnalysis
 from app.config.settings import settings
 from app.prompts.system_prompt import format_commit_analysis_prompt, format_epic_analysis_prompt, format_subcommit_neighbors_prompt
@@ -8,10 +9,11 @@ import asyncio
 from typing import List, Dict, Any
 
 gemini_2_0_flash = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2, api_key=settings.GOOGLE_API_KEY)
+gpt_4o_fallback = ChatOpenAI(model="gpt-4o", temperature=0.2, api_key=settings.OPENAI_API_KEY)
 
-model_structured_commit_analysis = gemini_2_0_flash.with_structured_output(SubCommitAnalysisList)
-model_structured_subcommit_neighbors = gemini_2_0_flash.with_structured_output(SubCommitNeighbors)
-model_structured_epic_analysis = gemini_2_0_flash.with_structured_output(Epic)
+model_structured_commit_analysis = gemini_2_0_flash.with_structured_output(SubCommitAnalysisList).with_fallbacks([gpt_4o_fallback])
+model_structured_subcommit_neighbors = gemini_2_0_flash.with_structured_output(SubCommitNeighbors).with_fallbacks([gpt_4o_fallback])
+model_structured_epic_analysis = gemini_2_0_flash.with_structured_output(Epic).with_fallbacks([gpt_4o_fallback])
 
 @retry(
     stop=stop_after_attempt(settings.retries),

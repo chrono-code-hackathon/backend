@@ -68,7 +68,6 @@ async def analyze_commits(request: CommitAnalysisRequest):
             # Fetch commits from the repository
             list_commits = await commits.get_repository_commits(request.repository_url, request.access_token)
 
-            print(list_commits)
             # Handle the case where no commits are returned (either repo not found or no commits)
             if not list_commits:
                 logger.warning(f"No commits found or repository not found: {request.repository_url}")

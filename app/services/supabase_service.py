@@ -111,7 +111,7 @@ def store_commit_analyses(analyses: List[SubCommitAnalysis]) -> Dict[str, Any]:
             return {"error": "Failed to initialize Supabase client"}
 
         # Convert SubCommitAnalysis objects to dictionaries
-        analyses_data = [analysis.dict() for analysis in analyses]
+        analyses_data = [analysis.model_dump() for analysis in analyses]
 
         # Fetch existing commit_sha values
         existing_analyses_query = supabase.table('commit_analyses').select('commit_sha').in_('commit_sha', [analysis['commit_sha'] for analysis in analyses_data])

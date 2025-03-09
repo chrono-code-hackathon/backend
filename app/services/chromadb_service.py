@@ -23,6 +23,25 @@ def get_subcommit_collection(collection_name: str):
         collection = chroma_client.create_collection(name=collection_name)
     return collection
 
+def collection_exists(collection_name: str) -> bool:
+    """
+    Check if a ChromaDB collection with the given name exists.
+    
+    Args:
+        collection_name: Name of the collection to check
+        
+    Returns:
+        Boolean indicating whether the collection exists
+    """
+    try:
+        chroma_client.get_collection(name=collection_name)
+        return True
+    except InvalidCollectionException:
+        return False
+    except Exception as e:
+        logger.error(f"Error checking if collection exists: {e}")
+        return False
+
 def insert_document(documents: List[Document], collection_name: str = "subcommit_vectors"):
     """
     Insert a list of documents into ChromaDB.

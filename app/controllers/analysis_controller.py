@@ -11,7 +11,7 @@ from app.services import commits
 from app.services.commits import AlreadyAnalyzedRepositoryError
 from app.logger.logger import logger
 from app.services.embeddings import get_text_embedding, create_subcommit_text
-from app.services.chromadb_service import insert_document, get_k_neighbors
+from app.services.chromadb_service import collection_exists, insert_document, get_k_neighbors
 from app.models.models_AI import Document
 
 router = APIRouter()
@@ -264,9 +264,18 @@ async def create_embedding_space(request: EmbeddingSpaceRequest):
         
         analyses = result["data"]
         repo_id = result.get("repo_id")
+
         if not repo_id:
             logger.error("Repository ID not found in result")
             raise HTTPException(status_code=500, detail="Repository ID not found")
+        
+        if collection_exists(repo_id):
+            logger.info(f"Collection {repo_id} already exists")
+            return {
+                "status": "success",
+                "message": f"Collection {repo_id} already exists",
+                "embeddings_count": 0
+            }
         
         logger.info(f"Retrieved {len(analyses)} commit analyses for repository ID: {repo_id}")
         

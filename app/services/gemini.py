@@ -1,5 +1,5 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
-from app.models.models_commit import Epic, SubCommitAnalysisList, Commit, SubCommitNeighbors, SubCommitAnalysis, SubCommitFileAnalysis
+from app.models.models_commit import ChatResponse, Epic, SubCommitAnalysisList, Commit, SubCommitNeighbors, SubCommitAnalysis, SubCommitFileAnalysis
 from app.config.settings import settings
 from app.prompts.system_prompt import (
     format_commit_analysis_prompt, 
@@ -28,6 +28,10 @@ gemini_1_5_pro = ChatGoogleGenerativeAI(model="gemini-1.5-pro-latest", temperatu
 model_structured_commit_analysis = gemini_2_0_flash.with_structured_output(SubCommitAnalysisList)
 model_structured_commit_analysis_fallback = gemini_1_5_pro.with_structured_output(SubCommitAnalysisList)
 model_commit_with_fallback = model_structured_commit_analysis.with_fallbacks([model_structured_commit_analysis_fallback])
+
+model_structured_chat_response = gemini_2_0_flash.with_structured_output(ChatResponse)
+model_structured_chat_response_fallback = gemini_1_5_pro.with_structured_output(ChatResponse)
+model_chat_response_with_fallback = model_structured_chat_response.with_fallbacks([model_structured_chat_response_fallback])
 
 # Create models for file analysis
 model_structured_file_analysis = gemini_2_0_flash.with_structured_output(SubCommitFileAnalysis)
@@ -242,3 +246,72 @@ async def get_subcommit_neighbors_analysis(subcommit_analysis: SubCommitAnalysis
         
     logger.info(f"Successfully analyzed subcommit neighbors for: {subcommit_analysis.title}")
     return neighbors_result
+
+@retry(
+    stop=stop_after_attempt(settings.retries),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(Exception),
+    reraise=True
+)
+async def answer_user_query_with_subcommits(subcommits: List[Dict[str, Any]], user_query: str) -> ChatResponse:
+    """
+    Answer a user query based on the context provided by multiple subcommits.
+    
+    Args:
+        subcommits: List of dictionaries containing subcommit metadata and content
+        user_query: The user's question or request
+        
+    Returns:
+        A detailed answer to the user's query based on the subcommit context
+    """
+    logger.info(f"Answering user query based on {len(subcommits)} subcommits")
+    
+    # Prepare context from subcommits
+    subcommit_context = ""
+    for i, subcommit in enumerate(subcommits):
+        if "metadata" in subcommit and "content" in subcommit["metadata"]:
+            metadata = subcommit.get("metadata", {})
+            subcommit_context += f"Subcommit ID {metadata['id']}:\n{subcommit['metadata']['content']}\n\n"
+        else:
+            # Fallback if content is not available
+            metadata = subcommit.get("metadata", {})
+            subcommit_context += f"Subcommit ID {metadata['id']} :metadata: {metadata.get('title', 'Unknown title')}\n"
+            if "id" in metadata:
+                subcommit_context += f"ID: {metadata['id']}\n"
+            if "commit_sha" in metadata:
+                subcommit_context += f"Commit SHA: {metadata['commit_sha']}\n"
+            subcommit_context += "\n"
+    
+    # Create prompt for the AI
+    prompt = f"""
+You are an AI assistant helping a developer understand code changes in a repository.
+Use the following subcommit information as context to answer the user's question.
+
+SUBCOMMIT CONTEXT:
+{subcommit_context}
+
+USER QUERY:
+{user_query}
+
+Please provide a detailed, accurate, and helpful response based on the information in the subcommits. Answer like you are an expert in this codebase. And answer the subcommits ids in the response that helped to you answer the user query.
+"""
+    
+    try:
+        # Use the base model without structured output for free-form text response
+        response: ChatResponse = await model_structured_chat_response.ainvoke(prompt)
+        
+        # If Gemini returns None, try fallback model directly
+        if response is None:
+            logger.warning(f"Gemini returned None for user query. Trying fallback model...")
+            response = await model_structured_chat_response_fallback.ainvoke(prompt)
+            
+        # Extract the text content from the response
+        return response
+        
+    except Exception as e:
+        logger.error(f"Failed to answer user query: {str(e)}")
+        logger.error(f"AI Error details: {repr(e)}")
+        raise  # Re-raise to trigger retry
+    
+    logger.info(f"Successfully answered user query")
+    return answer

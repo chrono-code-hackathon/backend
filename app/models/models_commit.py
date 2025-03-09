@@ -52,6 +52,22 @@ class CommitType(str, Enum):
     def __str__(self):
         return self.value
 
+class SubCommitAnalysisSupabase(BaseModel):
+    """
+    Represents a logical unit of work identified within a larger commit.
+    
+    A SubCommit is a focused, single-purpose change that may be part of a larger commit.
+    For example, a single GitHub commit might contain multiple logical changes like
+    fixing a bug, updating documentation, and refactoring code - each would be a separate SubCommit.
+    """
+    id: int = Field(description="The unique identifier for this subcommit analysis.")
+    title: str = Field(description="A concise, specific title (5-10 words) that precisely captures what this unit of work accomplishes.")
+    idea: str = Field(description="The core concept or purpose (max 15 sentences) explaining why this change was made and what problem it solves.")
+    description: str = Field(description="A comprehensive technical explanation detailing implementation specifics, architectural changes, and potential downstream effects.")
+    type: CommitType = Field(description="The primary category that best represents the nature of this change, selected from the CommitType enum.")
+    commit_sha: str = Field(description="The SHA identifier of the parent commit.")
+    files: List[File] = Field(description="The specific files modified as part of this logical unit of work, including their patches and change statistics.")
+
 class SubCommitAnalysis(BaseModel):
     """
     Represents a logical unit of work identified within a larger commit.
@@ -105,3 +121,13 @@ class SubCommitFileAnalysis(BaseModel):
     are relevant to a particular logical unit of work (SubCommit).
     """
     files: List[File] = Field(description="The specific files that are part of this logical unit of work.")
+
+class ChatResponse(BaseModel):
+    """
+    Represents the response from the chat model.
+    
+    This model captures both the textual response to the user's query and
+    the exact set of subcommit IDs that were relevant to generating the response.
+    """
+    response: str = Field(description="The detailed textual response addressing the user's query. Without any additional text.")
+    subcommits_ids: List[int] = Field(description="The precise and complete list of subcommit IDs that are directly relevant to the user's query. Only include IDs that were actually used to inform the response, with no extraneous IDs.")

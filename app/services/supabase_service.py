@@ -1,7 +1,7 @@
 import os
 from typing import Dict, Any, List, Optional
 from supabase import create_client, Client
-from app.models.models_commit import SubCommitAnalysis, Repository, Commit
+from app.models.models_commit import SubCommitAnalysis, Repository, Commit, SubCommitAnalysisSupabase
 from app.logger.logger import logger
 from app.config.settings import settings
 
@@ -209,33 +209,98 @@ from typing import List, Dict, Any
 from app.models.models_commit import SubCommitAnalysis
 from supabase import Client
 
-def get_all_commit_analyses() -> Dict[str, List[SubCommitAnalysis]]:
+def get_all_commit_analyses(repository_url: str) -> Dict[str, List[SubCommitAnalysisSupabase]]:
     """
-    Retrieve all documents from the 'commit_analyses' table in Supabase and deserialize them to SubCommitAnalysis objects.
+    Retrieve commit analyses from the 'commit_analyses' table in Supabase for a specific repository.
+    
+    Process:
+    1. Get repository ID from the repository URL
+    2. Get all commit SHAs associated with that repository ID
+    3. Get all commit analyses that match those commit SHAs
+
+    Args:
+        repository_url: URL of the repository to get analyses for
 
     Returns:
         A dictionary containing either the fetched data (as a list of SubCommitAnalysis objects) or an error message.
     """
     try:
-        logger.info("Retrieving all commit analyses from Supabase")
+        logger.info(f"Retrieving commit analyses for repository: {repository_url}")
+        
         supabase: Client = get_client()
         if not supabase:
             logger.error("Failed to initialize Supabase client")
             return {"error": "Failed to initialize Supabase client"}
 
-        result = supabase.table('commit_analyses').select("*").execute()
+        # Step 1: Get repository ID from the repository URL
+        repo_result = supabase.table('repositories').select("id").eq('url', repository_url).execute()
+        
+        if not repo_result.data:
+            logger.info(f"No repository found with URL: {repository_url}")
+            return {"data": []}
+            
+        repo_id = repo_result.data[0]['id']
+        logger.info(f"Found repository ID: {repo_id}")
+        
+        # Step 2: Get all commit SHAs associated with that repository ID
+        commits_result = supabase.table('commits').select("sha").eq('repo_id', repo_id).execute()
+        
+        if not commits_result.data:
+            logger.info(f"No commits found for repository: {repository_url}")
+            return {"data": []}
+            
+        # Extract commit SHAs
+        commit_shas = [commit['sha'] for commit in commits_result.data]
+        logger.info(f"Found {len(commit_shas)} commits for repository")
+        
+        # Step 3: Get all commit analyses that match those commit SHAs
+        analyses_result = supabase.table('commit_analyses').select("*").in_('commit_sha', commit_shas).execute()
 
-        if result.data:
-            logger.info(f"Successfully retrieved {len(result.data)} commit analyses.")
+        if analyses_result.data:
+            logger.info(f"Successfully retrieved {len(analyses_result.data)} commit analyses.")
             
-            # Deserialize each item in result.data to a SubCommitAnalysis object
-            analyses: List[SubCommitAnalysis] = [SubCommitAnalysis(**item) for item in result.data]
+            # Deserialize each item to a SubCommitAnalysis object
+            analyses: List[SubCommitAnalysisSupabase] = [SubCommitAnalysisSupabase(**item) for item in analyses_result.data]
             
-            return {"data": analyses}
+            return {"data": analyses, "repo_id": repo_id}
         else:
-            logger.info("No commit analyses found in Supabase.")
+            logger.info(f"No commit analyses found for repository: {repository_url}")
             return {"data": []}
 
     except Exception as e:
-        logger.error(f"Error retrieving commit analyses: {e}")
+        logger.error(f"Error retrieving commit analyses for repository {repository_url}: {e}")
+        return {"error": str(e)}
+
+def get_commit_analysis(subcommit_id: str) -> Dict[str, Any]:
+    """
+    Retrieve a single commit analysis from the 'commit_analyses' table in Supabase by commit SHA.
+
+    Args:
+        commit_sha: The SHA of the commit to retrieve
+
+    Returns:
+        A dictionary containing either the fetched data (as a SubCommitAnalysis object) or an error message.
+    """
+    try:
+        logger.info(f"Retrieving commit analysis for SidHA: {subcommit_id}")
+        supabase: Client = get_client()
+        if not supabase:
+            logger.error("Failed to initialize Supabase client")
+            return {"error": "Failed to initialize Supabase client"}
+
+        result = supabase.table('commit_analyses').select("*").eq('id', subcommit_id).execute()
+
+        if result.data and len(result.data) > 0:
+            logger.info(f"Successfully retrieved commit analysis for SidHA: {subcommit_id}")
+            
+            # Deserialize the item to a SubCommitAnalysis object
+            analysis = SubCommitAnalysis(**result.data[0])
+            
+            return {"data": analysis}
+        else:
+            logger.info(f"No commit analysis found for SidHA: {subcommit_id}")
+            return {"data": None}
+
+    except Exception as e:
+        logger.error(f"Error retrieving commit analysis for SidHA: {subcommit_id}: {e}")
         return {"error": str(e)}

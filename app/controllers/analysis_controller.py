@@ -3,13 +3,16 @@ from typing import List, Optional
 import asyncio
 
 from pydantic import BaseModel
-from app.models.models_commit import Commit, SubCommitAnalysis
-from app.services.gemini import get_commit_analysis, analyze_commits_batch
-from app.services.supabase_service import store_commit_analyses
+from app.models.models_commit import ChatResponse, Commit, SubCommitAnalysis
+from app.services.gemini import get_commit_analysis, analyze_commits_batch, answer_user_query_with_subcommits
+from app.services.supabase_service import store_commit_analyses, get_all_commit_analyses
 from app.config.settings import settings
 from app.services import commits
 from app.services.commits import AlreadyAnalyzedRepositoryError
 from app.logger.logger import logger
+from app.services.embeddings import get_text_embedding, create_subcommit_text
+from app.services.chromadb_service import insert_document, get_k_neighbors
+from app.models.models_AI import Document
 
 router = APIRouter()
 
@@ -21,6 +24,14 @@ class UpdateAnalysisRequest(BaseModel):
     repository_url: str
     branch: Optional[str] = None
     path: Optional[str] = None
+
+class EmbeddingSpaceRequest(BaseModel):
+    repository_url: str
+
+class QueryCommitsRequest(BaseModel):
+    repository_id: str
+    query: str
+    k: int = 5
 
 async def analyze_commit(commit: Commit) -> List[SubCommitAnalysis]:
     """
@@ -226,3 +237,170 @@ async def update_analysis(request: UpdateAnalysisRequest):
     except Exception as e:
         logger.error(f"Error in update_analysis endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error analyzing new commits: {str(e)}")
+
+@router.post("/create-embedding-space")
+async def create_embedding_space(request: EmbeddingSpaceRequest):
+    """
+    Endpoint to create an embedding space for a repository's commit analyses.
+    
+    Parameters:
+    - repository_url: URL of the repository to create embedding space for
+    
+    Returns:
+    - A summary of the embedding space creation operation
+    """
+    try:
+        logger.info(f"Received request to create embedding space for repository: {request.repository_url}")
+        
+        # Get all commit analyses for the repository
+        result = get_all_commit_analyses(request.repository_url)
+        
+        if "error" in result:
+            logger.error(f"Error retrieving commit analyses: {result['error']}")
+            raise HTTPException(status_code=500, detail=f"Error retrieving commit analyses: {result['error']}")
+        
+        if not result.get("data"):
+            logger.warning(f"No commit analyses found for repository: {request.repository_url}")
+            return {
+                "status": "warning",
+                "message": f"No commit analyses found for repository {request.repository_url}.",
+                "embeddings_count": 0
+            }
+        
+        analyses = result["data"]
+        repo_id = result.get("repo_id")
+        if not repo_id:
+            logger.error("Repository ID not found in result")
+            raise HTTPException(status_code=500, detail="Repository ID not found")
+        
+        logger.info(f"Retrieved {len(analyses)} commit analyses for repository ID: {repo_id}")
+        
+        # Process all embeddings concurrently without batching
+        import asyncio
+        
+        async def process_analysis(analysis):
+            # Prepare text for the analysis
+            text = create_subcommit_text(analysis)
+            
+            # Generate embedding for the text
+            embedding = await get_text_embedding([text])
+            
+            if embedding and embedding[0]:
+                # Create document with embedding
+                doc = Document(
+                    vector=embedding,
+                    subcommit_id=analysis.id,
+                    metadata={
+                        "subcommit_id": analysis.id,
+                        "content": f"Title: {analysis.title}\nDescription: {analysis.description}\nIdea: {analysis.idea}",
+                        "id": analysis.id,
+                        "commit_sha": analysis.commit_sha,
+                        "title": analysis.title,
+                        "repo_id": repo_id
+                    },
+                )
+                return doc
+            else:
+                logger.warning(f"Failed to generate embedding for subcommit: {analysis.id}")
+                return None
+        
+        # Create tasks for all analyses at once
+        tasks = [process_analysis(analysis) for analysis in analyses]
+        
+        # Process all analyses concurrently
+        results = await asyncio.gather(*tasks)
+        
+        # Filter out None results
+        documents = [doc for doc in results if doc is not None]
+        
+        logger.info(f"Created {len(documents)} documents with embeddings")
+        
+        # Insert all documents into ChromaDB at once
+        collection_name = f"{repo_id}"
+        insert_result = insert_document(documents, collection_name)
+        if "error" in insert_result:
+            logger.error(f"Error inserting documents into ChromaDB: {insert_result['error']}")
+            return {
+                "status": "error",
+                "message": f"Error creating embedding space: {insert_result['error']}",
+                "embeddings_count": 0
+            }
+        
+        logger.info(f"Successfully created embedding space for {repo_id} with {len(documents)} embeddings")
+        return {
+            "status": "success",
+            "message": f"Successfully created embedding space with {len(documents)} embeddings.",
+            "embeddings_count": len(documents),
+            "collection_name": collection_name
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in create_embedding_space endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating embedding space: {str(e)}")
+
+@router.post("/query-commits")
+async def query_commits(request: QueryCommitsRequest):
+    """
+    Endpoint to query commit analyses using semantic search.
+    
+    Parameters:
+    - repository_id: ID of the repository to query
+    - query: The query text to search for
+    - k: Number of results to return (default: 5)
+    
+    Returns:
+    - AI-generated response based on relevant commit analyses
+    """
+    try:
+        logger.info(f"Received query request for repository: {request.repository_id}")
+        
+        # Generate embedding for the query
+        query_embedding = await get_text_embedding([request.query])
+        if not query_embedding:
+            logger.error("Failed to generate embedding for query")
+            raise HTTPException(status_code=500, detail="Failed to generate embedding for query")
+        
+        # Query ChromaDB for nearest neighbors
+        collection_name = f"{request.repository_id}"
+        neighbors_result = get_k_neighbors(
+            collection_name=collection_name,
+            vector=query_embedding,
+            k=request.k
+        )
+        
+        if "error" in neighbors_result:
+            logger.error(f"Error querying ChromaDB: {neighbors_result['error']}")
+            raise HTTPException(status_code=500, detail=f"Error querying commits: {neighbors_result['error']}")
+        
+        results = neighbors_result.get("results", [])
+        logger.info(f"Found {len(results)} relevant commit analyses")
+        # Extract subcommit IDs from results
+        subcommit_ids = [int(result["id"]) for result in results]
+        
+        # Generate AI response based on the retrieved results
+        chat_response = None
+        if results:
+            try:
+                # Call Gemini to generate a response based on the retrieved subcommits
+                chat_response: ChatResponse = await answer_user_query_with_subcommits(
+                    subcommits=results,
+                    user_query=request.query
+                )
+                logger.info("Successfully generated AI response for the query")
+            except Exception as e:
+                logger.error(f"Error generating AI response: {str(e)}")
+                return {
+                    "status": "error",
+                    "message": f"Error generating AI response: {str(e)}",
+                    "subcommits_ids": subcommit_ids
+                }
+        
+        # Return the response in the requested format
+        return {
+            "status": "success",
+            "response": chat_response
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in query_commits endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error querying commits: {str(e)}")
